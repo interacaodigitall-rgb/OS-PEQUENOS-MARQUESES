@@ -8,12 +8,16 @@ type Message = {
     text: string;
 };
 
+// Acesso seguro à chave da API a partir do ambiente. Se não existir, o chatbot será desativado.
+const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : undefined;
+
 const Chatbot: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [isApiConfigured, setIsApiConfigured] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inactivityTimerRef = useRef<number | null>(null);
     const aiRef = useRef<any>(null);
@@ -37,7 +41,7 @@ const Chatbot: React.FC = () => {
     - Encerramentos: Última semana de agosto, feriados nacionais, dias 24 e 31 de dezembro.
     - Inscrição e Renovação: Abertas todo o ano para crianças de 4 meses a 6 anos (mediante vaga). Renovação anual em março.
     - Vestuário: Uniforme obrigatório de 1 de outubro a 31 de maio. No verão, polo, calções/saia e chapéu do colégio são obrigatórios.
-    - Alimentação: Refeições elaboradas no colégio por Nutricionista, seguindo normas HACCP (menus incluem sopa, prato principal e fruta, com baixo teor de açúcar).
+    - Alimentação: Refeições elaboradas no colégio por uma Nutricionista, seguindo normas HACCP (menus incluem sopa, prato principal e fruta, com baixo teor de açúcar).
 
     **PREÇÁRIO:**
     - Mensalidade "base-horário" inclui: Alimentação, produtos de higiene (fraldas, toalhitas, pomadas), bibe e atividades intracurriculares.
@@ -58,19 +62,30 @@ const Chatbot: React.FC = () => {
     `;
 
     useEffect(() => {
-        if (isOpen && messages.length === 0) {
-            setMessages([{ id: Date.now(), role: 'model', text: 'Olá! 👋 Eu sou o Marquinhos, o assistente virtual do colégio. Como posso ajudar? Pode escolher uma das opções abaixo ou escrever a sua pergunta.' }]);
-            setShowSuggestions(true);
-        }
-    }, [isOpen]);
-    
-    useEffect(() => {
-        try {
-             aiRef.current = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        } catch (e) {
-            console.error("Failed to initialize GoogleGenAI", e);
+        if (apiKey) {
+            try {
+                aiRef.current = new GoogleGenAI({ apiKey });
+                setIsApiConfigured(true);
+            } catch (e) {
+                console.error("Falha ao inicializar o GoogleGenAI:", e);
+                setIsApiConfigured(false);
+            }
+        } else {
+            console.warn("A chave da API do Gemini (API_KEY) não está configurada. O Chatbot estará desativado.");
+            setIsApiConfigured(false);
         }
     }, []);
+
+    useEffect(() => {
+        if (isOpen && messages.length === 0) {
+            if (isApiConfigured) {
+                setMessages([{ id: Date.now(), role: 'model', text: 'Olá! 👋 Eu sou o Marquinhos, o assistente virtual do colégio. Como posso ajudar? Pode escolher uma das opções abaixo ou escrever a sua pergunta.' }]);
+                setShowSuggestions(true);
+            } else {
+                setMessages([{ id: Date.now(), role: 'model', text: 'Peço desculpa, o serviço de chat não está disponível de momento.' }]);
+            }
+        }
+    }, [isOpen, isApiConfigured]);
 
     const resetInactivityTimer = () => {
         if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
@@ -106,8 +121,8 @@ const Chatbot: React.FC = () => {
         setInput('');
         setIsLoading(true);
 
-        if (!aiRef.current) {
-            setMessages(prev => [...prev, { id: Date.now() + 1, role: 'model', text: 'Ocorreu um erro ao inicializar a IA. Por favor, tente mais tarde.' }]);
+        if (!isApiConfigured || !aiRef.current) {
+            setMessages(prev => [...prev, { id: Date.now() + 1, role: 'model', text: 'Peço desculpa, o serviço de chat não está configurado corretamente.' }]);
             setIsLoading(false);
             return;
         }
@@ -175,7 +190,7 @@ const Chatbot: React.FC = () => {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {showSuggestions && messages.length > 0 && (
+                    {showSuggestions && messages.length > 0 && isApiConfigured && (
                         <div className="p-4 pt-0 border-t border-gray-200 flex flex-wrap gap-2 justify-center">
                             {suggestionButtons.map(btn => (
                                 <button key={btn.label} onClick={() => handleSendMessage(btn.label)} className={`px-4 py-2 rounded-full text-sm font-bold transition-colors ${btn.color}`}>
@@ -192,11 +207,11 @@ const Chatbot: React.FC = () => {
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                                placeholder="Escreva a sua dúvida..."
+                                placeholder={isApiConfigured ? "Escreva a sua dúvida..." : "Chat indisponível"}
                                 className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#F9792A]"
-                                disabled={isLoading}
+                                disabled={isLoading || !isApiConfigured}
                             />
-                            <button onClick={() => handleSendMessage()} disabled={isLoading || !input.trim()} className="ml-3 bg-[#F9792A] text-white px-4 py-2 rounded-full font-bold hover:bg-[#e06c24] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors">
+                            <button onClick={() => handleSendMessage()} disabled={isLoading || !input.trim() || !isApiConfigured} className="ml-3 bg-[#F9792A] text-white px-4 py-2 rounded-full font-bold hover:bg-[#e06c24] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors">
                                 Enviar
                             </button>
                         </div>

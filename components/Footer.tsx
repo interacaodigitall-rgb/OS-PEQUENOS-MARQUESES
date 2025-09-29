@@ -1,13 +1,31 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Logo from './Logo';
 import { FacebookIcon, InstagramIcon } from './IconComponents';
+import { getSupabase } from '../lib/supabase';
+
+const supabase = getSupabase();
 
 interface FooterProps {
   setActiveSection: (section: string) => void;
 }
 
 const Footer: React.FC<FooterProps> = ({ setActiveSection }) => {
-  
+  const [contactInfo, setContactInfo] = useState({ address: '', phone: '' });
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      const { data, error } = await supabase.from('site_config').select('key, value').in('key', ['address', 'main_phone']);
+      if (error) {
+        console.error("Erro ao carregar configurações do rodapé:", error);
+      } else if (data) {
+        const address = data.find(item => item.key === 'address')?.value || 'R. Marechal Gomes da Costa, 18<br/>2780-153 Oeiras';
+        const phone = data.find(item => item.key === 'main_phone')?.value || '(+351) 917 995 104';
+        setContactInfo({ address, phone });
+      }
+    };
+    fetchConfig();
+  }, []);
+
   const handleNavClick = (section: string) => {
     window.scrollTo(0, 0);
     setActiveSection(section);
@@ -36,8 +54,8 @@ const Footer: React.FC<FooterProps> = ({ setActiveSection }) => {
           <div>
             <h3 className="text-lg font-bold mb-4">Contacto</h3>
             <address className="not-italic space-y-2 text-gray-200">
-              <p>R. Marechal Gomes da Costa, 18<br/>2780-153 Oeiras</p>
-              <p>(+351) 917 995 104</p>
+              <p dangerouslySetInnerHTML={{ __html: contactInfo.address.replace(/\n/g, '<br/>') }}></p>
+              <p>{contactInfo.phone}</p>
             </address>
           </div>
            <div>

@@ -93,7 +93,7 @@ const Home: React.FC<{ setActiveSection: (section: string) => void; }> = ({ setA
                 </div>
             </div>
             
-            <div className="relative mb-12 w-full">
+            <div className="relative mb-12 w-full group">
                 <div className="flex animate-infinite-scroll group-hover:pause-animation">
                     {[...galleryImages, ...galleryImages].map((seed, index) => (
                     <div key={`${seed}-${index}`} className="flex-shrink-0 w-80 h-56 rounded-xl overflow-hidden shadow-lg mx-2">

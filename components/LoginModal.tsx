@@ -1,25 +1,36 @@
 import React, { useState } from 'react';
 import { XIcon } from './IconComponents';
+import { getSupabase } from '../lib/supabase';
+
+const supabase = getSupabase();
 
 interface LoginModalProps {
   onClose: () => void;
-  onLogin: () => void;
 }
 
-const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLogin }) => {
-  const [username, setUsername] = useState('');
+const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulação de autenticação
-    if (username === 'admin' && password === 'admin') {
-      setError('');
-      onLogin();
+    setLoading(true);
+    setError('');
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
+    });
+
+    if (error) {
+      setError('Email ou palavra-passe incorretos.');
+      console.error('Login Error:', error.message);
     } else {
-      setError('Utilizador ou palavra-passe incorretos.');
+      // O App.tsx irá detetar a mudança de estado e fechar o modal
     }
+    setLoading(false);
   };
 
   return (
@@ -44,13 +55,13 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLogin }) => {
         
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label htmlFor="username" className="block text-sm font-bold text-gray-700">Utilizador</label>
+            <label htmlFor="email" className="block text-sm font-bold text-gray-700">Email</label>
             <input 
-              type="text" 
-              name="username" 
-              id="username" 
-              value={username} 
-              onChange={(e) => setUsername(e.target.value)} 
+              type="email" 
+              name="email" 
+              id="email" 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)} 
               className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#F9792A] focus:border-[#F9792A]" 
               required 
             />
@@ -73,9 +84,10 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLogin }) => {
           <div>
             <button 
               type="submit" 
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-full shadow-sm text-lg font-bold text-white bg-[#F9792A] hover:bg-[#e06c24] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#F9792A] transition-colors"
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-full shadow-sm text-lg font-bold text-white bg-[#F9792A] hover:bg-[#e06c24] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#F9792A] transition-colors disabled:bg-gray-400"
+              disabled={loading}
             >
-              Entrar
+              {loading ? 'A entrar...' : 'Entrar'}
             </button>
           </div>
         </form>

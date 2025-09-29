@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { XIcon } from './IconComponents';
+import { getSupabase } from '../lib/supabase';
 
-const facilities = [
-  { name: 'Berçário', seed: 'nursery' },
-  { name: 'Sala de Atividades', seed: 'playroom' },
-  { name: 'Refeitório', seed: 'cafeteria' },
-  { name: 'Espaço Exterior', seed: 'playground' },
-  { name: 'Copa de Leites', seed: 'kitchenette' },
-  { name: 'Cantinho da Leitura', seed: 'reading-corner' },
-];
+const supabase = getSupabase();
+
+interface GalleryImage {
+  id: number;
+  publicUrl: string;
+  alt_text: string;
+}
 
 const facilityList = [
     "1 sala de berçário dividida em dois espaços: zona de berços e zona de brincar",
@@ -27,10 +27,30 @@ const facilityList = [
 ];
 
 const Gallery: React.FC = () => {
+  const [images, setImages] = useState<GalleryImage[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<{src: string, alt: string} | null>(null);
   const svg = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><path d="M0 20h40M20 0v40" stroke="#e5e7eb" stroke-width="1"/></svg>`;
   const gridPattern = `data:image/svg+xml;base64,${btoa(svg)}`;
   
+  useEffect(() => {
+    const fetchImages = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('gallery_images')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error("Erro ao carregar imagens da galeria:", error);
+      } else {
+        setImages(data || []);
+      }
+      setLoading(false);
+    };
+    fetchImages();
+  }, []);
+
   return (
     <>
       <section 
@@ -53,19 +73,25 @@ const Gallery: React.FC = () => {
               </div>
               <div className="lg:col-span-3">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {facilities.map((facility) => (
-                    <div 
-                      key={facility.seed} 
-                      className="rounded-xl overflow-hidden shadow-lg cursor-pointer group"
-                      onClick={() => setSelectedImage({src: `https://picsum.photos/seed/${facility.seed}/1200/800`, alt: facility.name})}
-                    >
-                      <img
-                        src={`https://picsum.photos/seed/${facility.seed}/500/500`}
-                        alt={facility.name}
-                        className="w-full h-full object-cover aspect-square mosaic-image"
-                      />
-                    </div>
-                  ))}
+                  {loading ? (
+                    Array.from({ length: 6 }).map((_, index) => (
+                      <div key={index} className="rounded-xl shadow-lg aspect-square bg-gray-200 animate-pulse"></div>
+                    ))
+                  ) : (
+                    images.map((image) => (
+                      <div 
+                        key={image.id} 
+                        className="rounded-xl overflow-hidden shadow-lg cursor-pointer group"
+                        onClick={() => setSelectedImage({src: image.publicUrl, alt: image.alt_text})}
+                      >
+                        <img
+                          src={image.publicUrl}
+                          alt={image.alt_text}
+                          className="w-full h-full object-cover aspect-square mosaic-image"
+                        />
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
           </div>
