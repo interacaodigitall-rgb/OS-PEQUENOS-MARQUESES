@@ -1,15 +1,43 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { sanityClient, urlFor } from '../lib/sanity';
+import { TeamMember } from '../types/index';
 
 const TeamMemberCard: React.FC<{ imgSrc: string; name: string; role: string; wide?: boolean }> = ({ imgSrc, name, role, wide = false }) => (
     <div className={`text-center transition-transform duration-300 hover:scale-105 ${wide ? 'md:col-span-2' : ''}`}>
-        <img src={imgSrc} alt={name} className="w-full h-64 object-cover object-center rounded-xl shadow-lg mb-4" />
+        <img src={imgSrc} alt={name} className="w-full h-64 object-cover object-center rounded-xl shadow-lg mb-4 bg-gray-200" loading="lazy" />
         <h4 className="font-display text-xl font-bold text-[#565656]">{name}</h4>
         <p className="text-base text-gray-500">{role}</p>
     </div>
 );
 
+const TeamMemberSkeleton: React.FC<{ wide?: boolean }> = ({ wide = false }) => (
+    <div className={`text-center ${wide ? 'md:col-span-2' : ''}`} aria-hidden="true">
+        <div className="w-full h-64 bg-gray-200 rounded-xl shadow-lg mb-4 animate-pulse"></div>
+        <div className="h-6 w-3/4 bg-gray-200 rounded mx-auto mb-2 animate-pulse"></div>
+        <div className="h-4 w-1/2 bg-gray-200 rounded mx-auto animate-pulse"></div>
+    </div>
+);
+
 
 const About: React.FC = () => {
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      try {
+        const query = `*[_type == "teamMember"] | order(orderRank asc) { _id, name, role, image, wide }`;
+        const members = await sanityClient.fetch<TeamMember[]>(query);
+        setTeamMembers(members);
+      } catch (error) {
+        console.error("Falha ao carregar os membros da equipa do CMS:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchTeamMembers();
+  }, []);
+
   const svg = `<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><path d="M0 10h20M10 0v20" stroke="#d1d5db" stroke-width="0.5"/></svg>`;
   const graphPaperPattern = `data:image/svg+xml;base64,${btoa(svg)}`;
 
@@ -44,9 +72,27 @@ const About: React.FC = () => {
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                <TeamMemberCard imgSrc="https://picsum.photos/seed/antonia/400/500" name="Antónia Martins" role="Diretora Administrativa" />
-                <TeamMemberCard imgSrc="https://picsum.photos/seed/olga/400/500" name="Olga Muro" role="Diretora Pedagógica" />
-                <TeamMemberCard imgSrc="https://picsum.photos/seed/equipa/800/500" name="Equipa educativa" role="Educadoras, Auxiliares, Cozinheira e funcionária da limpeza" wide={true} />
+                {isLoading ? (
+                    <>
+                        <TeamMemberSkeleton />
+                        <TeamMemberSkeleton />
+                        <TeamMemberSkeleton wide={true} />
+                    </>
+                ) : (
+                    teamMembers.length > 0 ? (
+                        teamMembers.map((member) => (
+                            <TeamMemberCard 
+                                key={member._id}
+                                imgSrc={urlFor(member.image).width(800).height(1000).fit('crop').auto('format').url()}
+                                name={member.name}
+                                role={member.role}
+                                wide={member.wide}
+                            />
+                        ))
+                    ) : (
+                       <p className="md:col-span-2 text-center text-gray-500 py-8">A nossa fantástica equipa será apresentada em breve!</p>
+                    )
+                )}
             </div>
           </div>
         </div>
